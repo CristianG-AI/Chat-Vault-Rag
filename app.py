@@ -71,8 +71,8 @@ if DEMO_MODE:
     )
     st.info(
         "**Want this on your own vault?** "
-        "[Run it yourself, free & open source](https://github.com/Valentin992/Chat-Vault-Rag) · "
-        "[Join the waitlist for a hosted version](https://valentin992.github.io/Chat-Vault-Rag/)",
+        "[Run it yourself, free & open source](https://github.com/CristianG-AI/Chat-Vault-Rag) · "
+        "[Join the waitlist for a hosted version](https://cristiang-ai.github.io/Chat-Vault-Rag/)",
         icon="💡",
     )
 else:
@@ -114,8 +114,8 @@ with st.sidebar:
         )
         st.divider()
         st.markdown(
-            "🧠 [Run this on your own vault](https://github.com/Valentin992/Chat-Vault-Rag)\n\n"
-            "📬 [Join the waitlist](https://valentin992.github.io/Chat-Vault-Rag/)"
+            "🧠 [Run this on your own vault](https://github.com/CristianG-AI/Chat-Vault-Rag)\n\n"
+            "📬 [Join the waitlist](https://cristiang-ai.github.io/Chat-Vault-Rag/)"
         )
 
 

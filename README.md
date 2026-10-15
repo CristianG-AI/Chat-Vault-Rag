@@ -7,7 +7,7 @@ making something up.
 
 > Local-first · open source · cites every source · measured to not hallucinate.
 
-**[▶ Try the live demo](https://chat-vault-demo.streamlit.app/)** (no setup) · **[📬 Join the waitlist](https://valentin992.github.io/Chat-Vault-Rag/)** for a hosted version
+**[▶ Try the live demo](https://chat-vault-demo.streamlit.app/)** (no setup) · **[📬 Join the waitlist](https://cristiang-ai.github.io/Chat-Vault-Rag/)** for a hosted version
 
 **Measured on the author's vault** (open evals harness, 15 golden questions, LLM-judged):
 
@@ -23,7 +23,7 @@ Stack: Python · ChromaDB · OpenAI embeddings · Claude · Streamlit.
 
 ```bash
 # 1. clone & install
-git clone https://github.com/Valentin992/Chat-Vault-Rag.git
+git clone https://github.com/CristianG-AI/Chat-Vault-Rag.git
 cd Chat-Vault-Rag
 python -m venv .venv
 .venv\Scripts\Activate.ps1          # Windows PowerShell  (mac/Linux: source .venv/bin/activate)

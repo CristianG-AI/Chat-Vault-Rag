@@ -1,0 +1,134 @@
+name: keepalive
+
+# Keep the VaultChat demo awake on Streamlit Community Cloud (free tier).
+#
+# Root cause this fixes: a *sleeping* Community Cloud app serves an
+# "app is asleep" page whose "Yes, get this app back up!" button must be
+# CLICKED in a real browser to wake it. A plain HTTP GET (curl / UptimeRobot)
+# fetches that page and returns 200, so a ping keeps an already-awake app warm
+# but can never wake a slept one. This job drives headless Chromium via
+# Playwright to perform the click. See docs/KEEPALIVE_RUNBOOK.md for the honest
+# caveats (this is the robust FREE path, not a guaranteed never-sleep).
+
+on:
+  schedule:
+    # Every 12 minutes. GitHub cron is UTC and best-effort: runs can be delayed
+    # several minutes under platform load, which is fine for a keep-alive.
+    - cron: "*/12 * * * *"
+  workflow_dispatch: {}
+
+# If a run is still going when the next fires, let it finish (don't pile up).
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+# Least privilege: this workflow only needs to read the repo.
+permissions:
+  contents: read
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_URL: "https://chat-vault-demo.streamlit.app"
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Playwright and headless Chromium
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Wake the app if it is asleep (Playwright headless Chromium)
+        run: |
+          python - <<'PY'
+          #!/usr/bin/env python3
+          """Wake the VaultChat Streamlit demo if it has gone to sleep.
+
+          Why a real browser and not curl: a *sleeping* Streamlit Community Cloud app
+          serves an "app is asleep" HTML page whose "Yes, get this app back up!" button
+          must be *clicked* to trigger a wake. A plain HTTP GET just fetches that page
+          (and returns 200), so a ping keeps an already-awake app warm but can never wake
+          a slept one. Playwright drives a headless Chromium, finds the button by its
+          text, clicks it, then confirms the real app rendered.
+          """
+          import os
+          import sys
+
+          from playwright.sync_api import sync_playwright
+
+          APP_URL = os.environ.get("APP_URL", "https://chat-vault-demo.streamlit.app")
+
+          # Text fragments on Streamlit's wake button ("Yes, get this app back up!").
+          # Matched case-insensitively. If Streamlit changes this copy, update it here
+          # (see docs/KEEPALIVE_RUNBOOK.md -> Caveats).
+          WAKE_BUTTON_TEXTS = ["get this app back up", "back up"]
+
+          # Selectors that only exist once the real Streamlit app has rendered.
+          RENDERED_SELECTORS = ["[data-testid='stAppViewContainer']", ".stApp"]
+
+
+          def log(msg):
+              print(f"[keepalive] {msg}", flush=True)
+
+
+          def main():
+              with sync_playwright() as p:
+                  browser = p.chromium.launch(headless=True)
+                  page = browser.new_page()
+
+                  log(f"Navigating to {APP_URL}")
+                  page.goto(APP_URL, wait_until="domcontentloaded", timeout=60000)
+                  # Let the asleep page (or the app shell) settle before inspecting it.
+                  page.wait_for_timeout(5000)
+
+                  # Detect the wake button by text and click it if present.
+                  clicked = False
+                  for text in WAKE_BUTTON_TEXTS:
+                      try:
+                          locator = page.get_by_text(text, exact=False)
+                          if locator.count() > 0 and locator.first.is_visible():
+                              log(f"App is asleep - wake button matched '{text}', clicking.")
+                              locator.first.click(timeout=10000)
+                              clicked = True
+                              break
+                      except Exception as exc:
+                          log(f"Wake-button check for '{text}' failed: {exc}")
+
+                  if clicked:
+                      log("Clicked wake button; waiting ~30s for the app to boot.")
+                      page.wait_for_timeout(30000)
+                  else:
+                      log("No wake button found - the app appears to be already awake.")
+
+                  # Confirm the real Streamlit app rendered (not the asleep/error page).
+                  rendered = False
+                  for selector in RENDERED_SELECTORS:
+                      try:
+                          page.wait_for_selector(selector, timeout=30000)
+                          log(f"Confirmed app rendered (selector: {selector}).")
+                          rendered = True
+                          break
+                      except Exception:
+                          continue
+
+                  browser.close()
+
+              if rendered:
+                  log("STATUS: SUCCESS - app is awake and rendered.")
+              else:
+                  # Do not fail the workflow: the next scheduled run retries in ~12 min,
+                  # and a transient miss should not spam failure emails. Log and exit 0.
+                  log("STATUS: WARNING - could not confirm render this run; will retry.")
+
+              sys.exit(0)
+
+
+          if __name__ == "__main__":
+              main()
+          PY
